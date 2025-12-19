@@ -1,0 +1,32 @@
+# VS相关缓存（核心忽略项）
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# 编译生成的可执行文件/中间文件
+out/
+bin/
+x64/
+Debug/
+Release/
+*.exe
+*.obj
+*.pdb
+*.ilk
+
+# Git无关文件
+*.log
+*.tmp
+
+# IDE
+.vscode/
+*.sln
+*.vcxproj*
+
+# OS
+.DS_Store
+Thumbs.db
+
+

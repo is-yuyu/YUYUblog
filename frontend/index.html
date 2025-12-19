@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>YUYU 微博</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1 class="logo">YUYU 微博</h1>
+      <div class="header-actions">
+        <span id="currentUser" class="user-badge">未登录</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container layout">
+    <aside class="panel auth-panel">
+      <div class="tabs">
+        <button data-tab="login" class="tab active">登录</button>
+        <button data-tab="register" class="tab">注册</button>
+      </div>
+
+      <div class="tab-body">
+        <form id="loginForm" class="form active">
+          <input id="l_email" type="email" placeholder="邮箱" required>
+          <input id="l_password" type="password" placeholder="密码" required>
+          <button type="submit" class="btn primary">登录</button>
+        </form>
+
+        <form id="registerForm" class="form">
+          <input id="r_username" placeholder="用户名" required>
+          <input id="r_email" type="email" placeholder="邮箱" required>
+          <input id="r_password" type="password" placeholder="密码" required>
+          <button type="submit" class="btn primary">注册</button>
+        </form>
+      </div>
+    </aside>
+
+    <section class="feed">
+      <div class="composer card">
+        <textarea id="weiboContent" placeholder="说点什么...（140字以内）" maxlength="140"></textarea>
+        <div class="composer-actions">
+          <input id="weiboMedia" type="text" placeholder="图片 URL（可选）">
+          <button id="weiboPostBtn" class="btn primary">发布</button>
+        </div>
+      </div>
+
+      <div id="weiboList" class="weibo-list"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">YUYU 微博示例 — 前端演示</div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
