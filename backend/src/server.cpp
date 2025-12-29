@@ -127,10 +127,40 @@ bool Server::init(const std::string &conninfo) {
             if(user_id<=0){ res.status=401; res.set_content(R"({"ok":false,"error":"unauthorized"})","application/json"); return; }
             long weibo_id = j.value("weibo_id", 0);
             std::string content = j.value("content", "");
+            long parent_id = j.value("parent_id", 0);
             if(weibo_id<=0 || content.empty()){ res.status=400; res.set_content(R"({"ok":false,"error":"invalid input"})","application/json"); return; }
             long comment_id=0; std::string err;
-            if(!pimpl->db.create_comment(user_id,weibo_id,content,comment_id,err)){ res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return; }
+            if(!pimpl->db.create_comment(user_id,weibo_id,content,parent_id,comment_id,err)){ res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return; }
             res.set_content(json({{"ok",true},{"comment_id",comment_id}}).dump(),"application/json");
+        }catch(...){ res.status=400; res.set_content(R"({"ok":false})","application/json"); }
+    });
+
+    // delete comment (only author)
+    s.Post("/api/comment/delete", [this](const httplib::Request &req, httplib::Response &res){
+        try{
+            auto j = json::parse(req.body);
+            long user_id = auth_user(req);
+            if(user_id<=0){ res.status=401; res.set_content(R"({"ok":false,"error":"unauthorized"})","application/json"); return; }
+            long comment_id = j.value("comment_id", 0);
+            if(comment_id<=0){ res.status=400; res.set_content(R"({"ok":false,"error":"invalid input"})","application/json"); return; }
+            std::string err;
+            if(!pimpl->db.delete_comment(user_id, comment_id, err)){ res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return; }
+            res.set_content(json({{"ok",true}}).dump(),"application/json");
+        }catch(...){ res.status=400; res.set_content(R"({"ok":false})","application/json"); }
+    });
+
+    // update user profile (username, avatar)
+    s.Post("/api/user/update", [this](const httplib::Request &req, httplib::Response &res){
+        try{
+            auto j = json::parse(req.body);
+            long user_id = auth_user(req);
+            if(user_id<=0){ res.status=401; res.set_content(R"({"ok":false,"error":"unauthorized"})","application/json"); return; }
+            std::string username = j.value("username", "");
+            std::string avatar = j.value("avatar", "");
+            if(username.empty() && avatar.empty()){ res.status=400; res.set_content(R"({"ok":false,"error":"invalid input"})","application/json"); return; }
+            std::string err;
+            if(!pimpl->db.update_user_profile(user_id, username, avatar, err)){ res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return; }
+            res.set_content(json({{"ok",true}}).dump(),"application/json");
         }catch(...){ res.status=400; res.set_content(R"({"ok":false})","application/json"); }
     });
 

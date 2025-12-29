@@ -115,7 +115,7 @@ bool Database::get_weibos(int limit, std::string &json_out, std::string &err) {
     std::string s_limit = std::to_string(limit);
     const char *paramValues[1] = { s_limit.c_str() };
     PGresult *res = PQexecParams(pimpl->conn,
-        "SELECT w.weibo_id, w.user_id, u.username, w.content, COALESCE(w.media,'') AS media, EXTRACT(EPOCH FROM w.created_at)*1000::bigint AS created_ms, "
+        "SELECT w.weibo_id, w.user_id, u.username, COALESCE(u.avatar,'') AS avatar, w.content, COALESCE(w.media,'') AS media, EXTRACT(EPOCH FROM w.created_at)*1000::bigint AS created_ms, "
         "(SELECT COUNT(*) FROM likes l WHERE l.weibo_id = w.weibo_id) AS like_count, "
         "(SELECT COUNT(*) FROM comments c WHERE c.weibo_id = w.weibo_id) AS comment_count "
         "FROM weibos w JOIN users u ON w.user_id = u.user_id "
@@ -134,12 +134,13 @@ bool Database::get_weibos(int limit, std::string &json_out, std::string &err) {
         item["weibo_id"] = std::stol(PQgetvalue(res, i, 0));
         item["user_id"] = std::stol(PQgetvalue(res, i, 1));
         item["username"] = std::string(PQgetvalue(res, i, 2));
-        item["content"] = std::string(PQgetvalue(res, i, 3));
-        item["media"] = std::string(PQgetvalue(res, i, 4));
+        item["avatar"] = std::string(PQgetvalue(res, i, 3));
+        item["content"] = std::string(PQgetvalue(res, i, 4));
+        item["media"] = std::string(PQgetvalue(res, i, 5));
         // created_ms is numeric string
-        try { item["created_at"] = std::stoll(PQgetvalue(res, i, 5)); } catch(...) { item["created_at"] = 0; }
-        try { item["like_count"] = std::stoi(PQgetvalue(res, i, 6)); } catch(...) { item["like_count"] = 0; }
-        try { item["comment_count"] = std::stoi(PQgetvalue(res, i, 7)); } catch(...) { item["comment_count"] = 0; }
+        try { item["created_at"] = std::stoll(PQgetvalue(res, i, 6)); } catch(...) { item["created_at"] = 0; }
+        try { item["like_count"] = std::stoi(PQgetvalue(res, i, 7)); } catch(...) { item["like_count"] = 0; }
+        try { item["comment_count"] = std::stoi(PQgetvalue(res, i, 8)); } catch(...) { item["comment_count"] = 0; }
         arr.push_back(item);
     }
     PQclear(res);
@@ -153,7 +154,7 @@ bool Database::get_comments(long weibo_id, std::string &json_out, std::string &e
     std::string s_weibo = std::to_string(weibo_id);
     const char *paramValues[1] = { s_weibo.c_str() };
     PGresult *res = PQexecParams(pimpl->conn,
-        "SELECT c.comment_id, c.user_id, u.username, c.content, EXTRACT(EPOCH FROM c.created_at)*1000::bigint AS created_ms "
+        "SELECT c.comment_id, c.user_id, u.username, COALESCE(u.avatar,'') AS avatar, c.content, COALESCE(c.parent_id,0) AS parent_id, EXTRACT(EPOCH FROM c.created_at)*1000::bigint AS created_ms "
         "FROM comments c JOIN users u ON c.user_id = u.user_id WHERE c.weibo_id = $1::bigint ORDER BY c.created_at ASC;",
         1, nullptr, paramValues, nullptr, nullptr, 0);
     if (!res) { err = "no result"; return false; }
@@ -164,12 +165,50 @@ bool Database::get_comments(long weibo_id, std::string &json_out, std::string &e
         it["comment_id"] = std::stol(PQgetvalue(res,i,0));
         it["user_id"] = std::stol(PQgetvalue(res,i,1));
         it["username"] = std::string(PQgetvalue(res,i,2));
-        it["content"] = std::string(PQgetvalue(res,i,3));
-        try { it["created_at"] = std::stoll(PQgetvalue(res,i,4)); } catch(...) { it["created_at"] = 0; }
+        it["avatar"] = std::string(PQgetvalue(res,i,3));
+        it["content"] = std::string(PQgetvalue(res,i,4));
+        try{ it["parent_id"] = std::stol(PQgetvalue(res,i,5)); } catch(...) { it["parent_id"] = 0; }
+        try { it["created_at"] = std::stoll(PQgetvalue(res,i,6)); } catch(...) { it["created_at"] = 0; }
         arr.push_back(it);
     }
     PQclear(res);
     json out; out["comments"] = arr; json_out = out.dump(); return true;
+}
+
+bool Database::create_comment(long user_id, long weibo_id, const std::string &content, long parent_id, long &out_comment_id, std::string &err) {
+    std::string s_weibo = std::to_string(weibo_id);
+    std::string s_user = std::to_string(user_id);
+    std::string s_parent = std::to_string(parent_id);
+    const char *paramValues[4] = { s_weibo.c_str(), s_user.c_str(), content.c_str(), s_parent.c_str() };
+    PGresult *res = PQexecParams(pimpl->conn,
+        "INSERT INTO comments(weibo_id,user_id,content,parent_id) VALUES($1::bigint,$2::bigint,$3,NULLIF($4::bigint,0)) RETURNING comment_id;",
+        4, nullptr, paramValues, nullptr, nullptr, 0);
+    if (!res) { err = "no result"; return false; }
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) { err = PQresultErrorMessage(res); PQclear(res); return false; }
+    out_comment_id = std::stol(PQgetvalue(res,0,0)); PQclear(res); return true;
+}
+
+bool Database::delete_comment(long user_id, long comment_id, std::string &err) {
+    std::string s_comment = std::to_string(comment_id);
+    std::string s_user = std::to_string(user_id);
+    const char *paramValues[2] = { s_comment.c_str(), s_user.c_str() };
+    PGresult *res = PQexecParams(pimpl->conn,
+        "DELETE FROM comments WHERE comment_id=$1::bigint AND user_id=$2::bigint RETURNING comment_id;",
+        2, nullptr, paramValues, nullptr, nullptr, 0);
+    if (!res) { err = "no result"; return false; }
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) { err = PQresultErrorMessage(res); PQclear(res); return false; }
+    bool ok = PQntuples(res) > 0; PQclear(res); return ok;
+}
+
+bool Database::update_user_profile(long user_id, const std::string &username, const std::string &avatar, std::string &err) {
+    std::string s_user = std::to_string(user_id);
+    const char *paramValues[3] = { username.c_str(), avatar.c_str(), s_user.c_str() };
+    PGresult *res = PQexecParams(pimpl->conn,
+        "UPDATE users SET username=$1, avatar=$2 WHERE user_id=$3::bigint RETURNING user_id;",
+        3, nullptr, paramValues, nullptr, nullptr, 0);
+    if (!res) { err = "no result"; return false; }
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) { err = PQresultErrorMessage(res); PQclear(res); return false; }
+    bool ok = PQntuples(res) > 0; PQclear(res); return ok;
 }
 
 bool Database::get_user_likes(long user_id, std::string &json_out, std::string &err) {
@@ -184,18 +223,6 @@ bool Database::get_user_likes(long user_id, std::string &json_out, std::string &
     for (int i=0;i<PQntuples(res);++i){ arr.push_back(std::stol(PQgetvalue(res,i,0))); }
     PQclear(res);
     json out; out["weibo_ids"] = arr; json_out = out.dump(); return true;
-}
-
-bool Database::create_comment(long user_id, long weibo_id, const std::string &content, long &out_comment_id, std::string &err) {
-    std::string s_weibo = std::to_string(weibo_id);
-    std::string s_user = std::to_string(user_id);
-    const char *paramValues[3] = { s_weibo.c_str(), s_user.c_str(), content.c_str() };
-    PGresult *res = PQexecParams(pimpl->conn,
-        "INSERT INTO comments(weibo_id,user_id,content) VALUES($1::bigint,$2::bigint,$3) RETURNING comment_id;",
-        3, nullptr, paramValues, nullptr, nullptr, 0);
-    if (!res) { err = "no result"; return false; }
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) { err = PQresultErrorMessage(res); PQclear(res); return false; }
-    out_comment_id = std::stol(PQgetvalue(res,0,0)); PQclear(res); return true;
 }
 
 bool Database::add_like(long user_id, long weibo_id, long &out_like_id, std::string &err) {

@@ -12,8 +12,10 @@ public:
     bool check_user(const std::string &email, const std::string &password_hash, long &out_user_id);
     bool create_weibo(long user_id, const std::string &content, const std::string &media, long &out_weibo_id, std::string &err);
     bool get_weibos(int limit, std::string &json_out, std::string &err);
-    bool create_comment(long user_id, long weibo_id, const std::string &content, long &out_comment_id, std::string &err);
+    bool create_comment(long user_id, long weibo_id, const std::string &content, long parent_id, long &out_comment_id, std::string &err);
+    bool delete_comment(long user_id, long comment_id, std::string &err);
     bool get_comments(long weibo_id, std::string &json_out, std::string &err);
+    bool update_user_profile(long user_id, const std::string &username, const std::string &avatar, std::string &err);
     bool add_like(long user_id, long weibo_id, long &out_like_id, std::string &err);
     bool remove_like(long user_id, long weibo_id, std::string &err);
     bool get_user_likes(long user_id, std::string &json_out, std::string &err);
