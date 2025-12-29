@@ -86,7 +86,7 @@ function renderProfilePanel(){
   aside.innerHTML = `
     <div class="profile card">
       <div style="display:flex;align-items:center">
-        <img id="profileAvatar" src="" alt="avatar" style="width:56px;height:56px;border-radius:28px;margin-right:12px;object-fit:cover">
+        <img id="profileAvatar" src="" alt="avatar" style="width:56px;height:56px;border-radius:8px;margin-right:12px;object-fit:cover">
         <div>
           <div id="profileName" style="font-weight:600">${escapeHtml(state.user.username||('用户#'+state.user.user_id))}</div>
           <div style="font-size:12px;color:#666">ID: ${state.user.user_id}</div>
@@ -181,13 +181,16 @@ function renderWeiboList(){
     const id = Number(w.weibo_id || 0);
     const liked = state.user && state.user_likes.has(id);
     const el = document.createElement('div'); el.className='weibo-item';
-    const avatarHtml = w.avatar ? ('<div class="avatar"><img src="'+escapeHtml(w.avatar)+'" style="width:36px;height:36px;border-radius:6px;object-fit:cover"></div>') : ('<div class="avatar">'+escapeHtml((w.username||'U').slice(0,1).toUpperCase())+'</div>');
+    // 统一使用圆角方形头像
+    const avatarHtml = w.avatar ? 
+      ('<div class="avatar"><img src="'+escapeHtml(w.avatar)+'" style="width:48px;height:48px;border-radius:8px;object-fit:cover"></div>') : 
+      ('<div class="avatar">'+escapeHtml((w.username||'U').slice(0,1).toUpperCase())+'</div>');
     el.innerHTML = `
       ${avatarHtml}
       <div class="weibo-body">
         <div class="weibo-meta">${escapeHtml(w.username||('用户#'+(w.user_id||'')))} · ${formatTime(w.created_at||Date.now())}</div>
         <div class="weibo-content">${escapeHtml(w.content||'')}</div>
-        ${w.media?('<div style="margin-top:8px"><img src="'+escapeHtml(w.media)+'" style="max-width:100%;border-radius:6px"></div>'):''}
+        ${w.media?('<div style="margin-top:8px"><img src="'+escapeHtml(w.media)+'" style="max-width:100%;border-radius:8px"></div>'):''}
         <div class="weibo-actions" style="margin-top:8px">
           <button class="btn like-btn">${liked? '已赞' : '点赞'} (${Number(w.like_count||0)})</button>
           <button class="btn comment-toggle">评论 (${Number(w.comment_count||0)})</button>
