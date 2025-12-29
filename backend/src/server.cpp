@@ -194,6 +194,23 @@ bool Server::init(const std::string &conninfo) {
         res.set_content(out, "application/json");
     });
 
+    s.Get("/api/comments", [this](const httplib::Request &req, httplib::Response &res){
+        long weibo_id = 0;
+        if (req.has_param("weibo_id")) try{ weibo_id = std::stol(req.get_param_value("weibo_id")); } catch(...){}
+        if (weibo_id<=0){ res.status=400; res.set_content(R"({"ok":false,"error":"invalid weibo_id"})","application/json"); return; }
+        std::string out, err;
+        if(!pimpl->db.get_comments(weibo_id,out,err)){ res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return; }
+        res.set_content(out, "application/json");
+    });
+
+    s.Get("/api/user_likes", [this](const httplib::Request &req, httplib::Response &res){
+        long user_id = auth_user(req);
+        if (user_id<=0){ res.status=401; res.set_content(R"({"ok":false,"error":"unauthorized"})","application/json"); return; }
+        std::string out, err;
+        if(!pimpl->db.get_user_likes(user_id,out,err)){ res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return; }
+        res.set_content(out, "application/json");
+    });
+
     s.Get("/api/following", [this](const httplib::Request &req, httplib::Response &res){
         long user_id = 0;
         if (req.has_param("user_id")) try{ user_id = std::stol(req.get_param_value("user_id")); } catch(...){}

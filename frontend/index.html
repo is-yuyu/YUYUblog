@@ -1,59 +1,154 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="YUYU微博 - 一个简单的微博系统演示">
   <title>YUYU 微博</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="site-header">
+  <header class="site-header" role="banner">
     <div class="container">
-      <h1 class="logo">YUYU 微博</h1>
+      <h1 class="logo">
+        <a href="#" aria-label="YUYU微博首页">YUYU 微博</a>
+      </h1>
       <div class="header-actions">
-        <span id="currentUser" class="user-badge">未登录</span>
+        <span id="currentUser" class="user-badge" aria-live="polite">未登录</span>
       </div>
     </div>
   </header>
 
-  <main class="container layout">
-    <aside class="panel auth-panel">
-      <div class="tabs">
-        <button data-tab="login" class="tab active">登录</button>
-        <button data-tab="register" class="tab">注册</button>
+  <main class="container layout" role="main">
+    <aside class="panel auth-panel" aria-label="用户认证面板">
+      <div class="tabs" role="tablist" aria-label="登录注册切换">
+        <button 
+          id="login-tab" 
+          data-tab="login" 
+          class="tab active" 
+          role="tab" 
+          aria-selected="true" 
+          aria-controls="login-panel"
+        >
+          登录
+        </button>
+        <button 
+          id="register-tab" 
+          data-tab="register" 
+          class="tab" 
+          role="tab" 
+          aria-selected="false" 
+          aria-controls="register-panel"
+        >
+          注册
+        </button>
       </div>
 
       <div class="tab-body">
-        <form id="loginForm" class="form active">
-          <input id="l_email" type="email" placeholder="邮箱" required>
-          <input id="l_password" type="password" placeholder="密码" required>
+        <form 
+          id="loginForm" 
+          class="form active" 
+          role="tabpanel" 
+          id="login-panel" 
+          aria-labelledby="login-tab"
+        >
+          <div class="form-group">
+            <label for="l_email" class="visually-hidden">邮箱</label>
+            <input 
+              id="l_email" 
+              type="email" 
+              placeholder="邮箱" 
+              required 
+              aria-required="true"
+            >
+          </div>
+          <div class="form-group">
+            <label for="l_password" class="visually-hidden">密码</label>
+            <input 
+              id="l_password" 
+              type="password" 
+              placeholder="密码" 
+              required 
+              aria-required="true"
+            >
+          </div>
           <button type="submit" class="btn primary">登录</button>
         </form>
 
-        <form id="registerForm" class="form">
-          <input id="r_username" placeholder="用户名" required>
-          <input id="r_email" type="email" placeholder="邮箱" required>
-          <input id="r_password" type="password" placeholder="密码" required>
+        <form 
+          id="registerForm" 
+          class="form" 
+          role="tabpanel" 
+          id="register-panel" 
+          aria-labelledby="register-tab"
+          aria-hidden="true"
+        >
+          <div class="form-group">
+            <label for="r_username" class="visually-hidden">用户名</label>
+            <input 
+              id="r_username" 
+              placeholder="用户名" 
+              required 
+              aria-required="true"
+            >
+          </div>
+          <div class="form-group">
+            <label for="r_email" class="visually-hidden">邮箱</label>
+            <input 
+              id="r_email" 
+              type="email" 
+              placeholder="邮箱" 
+              required 
+              aria-required="true"
+            >
+          </div>
+          <div class="form-group">
+            <label for="r_password" class="visually-hidden">密码</label>
+            <input 
+              id="r_password" 
+              type="password" 
+              placeholder="密码" 
+              required 
+              aria-required="true"
+            >
+          </div>
           <button type="submit" class="btn primary">注册</button>
         </form>
       </div>
     </aside>
 
-    <section class="feed">
-      <div class="composer card">
-        <textarea id="weiboContent" placeholder="说点什么...（140字以内）" maxlength="140"></textarea>
+    <section class="feed" aria-label="微博内容区域">
+      <div class="composer card" role="form" aria-label="发布微博">
+        <label for="weiboContent" class="visually-hidden">微博内容</label>
+        <textarea 
+          id="weiboContent" 
+          placeholder="说点什么...（140字以内）" 
+          maxlength="140" 
+          aria-describedby="charCount"
+        ></textarea>
+        <div id="charCount" class="char-count" aria-live="polite">0/140</div>
         <div class="composer-actions">
-          <input id="weiboMedia" type="text" placeholder="图片 URL（可选）">
+          <label for="weiboMedia" class="visually-hidden">图片URL</label>
+          <input 
+            id="weiboMedia" 
+            type="text" 
+            placeholder="图片 URL（可选）"
+          >
           <button id="weiboPostBtn" class="btn primary">发布</button>
         </div>
       </div>
 
-      <div id="weiboList" class="weibo-list"></div>
+      <div id="weiboList" class="weibo-list" aria-live="polite" aria-atomic="false">
+        <!-- 微博列表将通过JavaScript动态生成 -->
+      </div>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <div class="container">YUYU 微博示例 — 前端演示</div>
+  <footer class="site-footer" role="contentinfo">
+    <div class="container">
+      <p>YUYU 微博示例 — 前端演示</p>
+      <p class="footer-info">这是一个演示项目，用于展示微博系统的基本功能</p>
+    </div>
   </footer>
 
   <script src="main.js"></script>
