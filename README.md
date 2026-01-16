@@ -78,3 +78,43 @@ cmake --build .
 - 填充后端 HTTP 实现（建议使用 `cpp-httplib` 或 `Crow`）
 - 实现数据库访问层（C++ 的 libpq 或其他 openGauss 客户端）
 
+🚀 YUYU 项目每日启动与维护指南
+第一阶段：启动数据库环境
+由于你已经完成了所有配置（用户、权限、远程访问），以后启动只需一句话：
+
+启动容器： 打开 PowerShell，执行：
+
+PowerShell
+
+docker start opengauss_yuyu
+检查状态（可选）： 确保容器状态为 Up：
+
+PowerShell
+
+docker ps
+第二阶段：启动后端服务
+运行后端程序： 直接双击运行 D:\cloneC\Desktop\yuyu\database\YUYUblog\bin\Debug\yuyu_backend.exe。
+
+验证连接： 观察控制台是否输出 DB connected successfully（或类似的连接成功提示）。
+
+注意：如果报错“FATAL: Forbid remote connection...”，说明后端连接字符串不小心被改回了 omm，请确保代码中使用的是 yuyu_user。
+
+第三阶段：前端访问
+打开浏览器： 访问 http://localhost:8080（或你设定的前端端口）。
+
+业务测试： 尝试登录或注册，确认数据能正常读写。
+
+🛠️ 进阶：如何备份你的最新数据？
+随着你项目开发，数据库里会产生新的数据（新用户、新博文）。建议每周或在重大更新后执行一次备份，更新你的 yuyu_backup.sql：
+
+PowerShell
+
+# 在 Windows PowerShell 执行，将容器内最新数据导出到 D 盘
+docker exec opengauss_yuyu gs_dump -U omm -d yuyu -p 5432 -f /home/omm/yuyu_backup_new.sql
+docker cp opengauss_yuyu:/home/omm/yuyu_backup_new.sql D:\yuyu_backup_new.sql
+⚠️ 避坑小贴士（必看）
+不要随便删目录：D:\opengauss_data 文件夹是你数据库的“心脏”，不要在容器运行期间移动或删除它。
+
+关于 Docker 启动：如果电脑重启后发现容器没启动，只需执行 docker start opengauss_yuyu，千万不要再跑 docker run（否则会创建一个新容器导致冲突）。
+
+密码改动：如果以后修改了数据库密码，记得同步修改 C++ 后端的连接字符串并重新编译。

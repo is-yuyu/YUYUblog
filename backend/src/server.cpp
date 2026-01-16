@@ -8,6 +8,7 @@
 #include <sstream>
 #include <chrono>
 #include <cstdlib>
+#include <filesystem>
 
 using json = nlohmann::json;
 
@@ -105,6 +106,16 @@ bool Server::init(const std::string &conninfo) {
         }catch(...){ res.status=400; res.set_content(R"({"ok":false})","application/json"); }
     });
 
+    s.Get("/api/user/info", [this](const httplib::Request &req, httplib::Response &res){
+        long user_id = auth_user(req);
+        if(user_id<=0){ res.status=401; res.set_content(R"({"ok":false,"error":"unauthorized"})","application/json"); return; }
+        std::string out, err;
+        if(!pimpl->db.get_user_info(user_id, out, err)){ 
+            res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return; 
+        }
+        res.set_content(out, "application/json");
+    });
+
     s.Post("/api/weibo", [this](const httplib::Request &req, httplib::Response &res){
         try{
             auto j = json::parse(req.body);
@@ -191,12 +202,19 @@ bool Server::init(const std::string &conninfo) {
             long followee = j.value("followee_id",0);
             std::string action = j.value("action","follow");
             if(followee<=0){ res.status=400; res.set_content(R"({"ok":false,"error":"invalid input"})","application/json"); return; }
+            if(followee == user_id){ res.status=400; res.set_content(R"({"ok":false,"error":"cannot follow yourself"})","application/json"); return; }
             std::string err; long id=0;
             if(action=="follow"){
-                if(!pimpl->db.create_follow(user_id,followee,id,err)){ res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return; }
+                if(!pimpl->db.create_follow(user_id,followee,id,err)){
+                    std::cerr << "follow create error: " << err << " follower=" << user_id << " followee=" << followee << "\n";
+                    res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return;
+                }
                 res.set_content(json({{"ok",true},{"follow_id",id}}).dump(),"application/json");
             } else {
-                if(!pimpl->db.remove_follow(user_id,followee,err)){ res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return; }
+                if(!pimpl->db.remove_follow(user_id,followee,err)){
+                    std::cerr << "follow remove error: " << err << " follower=" << user_id << " followee=" << followee << "\n";
+                    res.status=500; res.set_content(json({{"ok",false},{"error",err}}).dump(),"application/json"); return;
+                }
                 res.set_content(json({{"ok",true}}).dump(),"application/json");
             }
         }catch(...){ res.status=400; res.set_content(R"({"ok":false})","application/json"); }
@@ -265,12 +283,24 @@ bool Server::init(const std::string &conninfo) {
         res.set_content(json_out, "application/json");
     });
 
-    // Try to serve frontend static files. Try several relative paths so that
-    // it works whether the executable is run from build dir or project root.
+    // Try to serve frontend static files. Pick the first existing relative
+    // path so the server serves the actual current frontend directory.
+    namespace fs = std::filesystem;
     const char *candidates[] = {"frontend", "./frontend", "../frontend", "../../frontend"};
+    bool mounted = false;
     for (auto &p : candidates) {
-        s.set_mount_point("/", p);
+        try {
+            if (fs::is_directory(p)) {
+                s.set_mount_point("/", p);
+                mounted = true;
+                break;
+            }
+        } catch (...) {
+            // ignore filesystem errors and try next candidate
+        }
     }
+    // If none matched, leave mount points unset and rely on the explicit
+    // index.html fallback below.
 
     // Fallback: explicitly serve index.html on root if mount points didn't match
     s.Get("/", [](const httplib::Request &req, httplib::Response &res){

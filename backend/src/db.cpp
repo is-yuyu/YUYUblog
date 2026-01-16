@@ -250,15 +250,47 @@ bool Database::remove_like(long user_id, long weibo_id, std::string &err) {
 }
 
 bool Database::create_follow(long follower_id, long followee_id, long &out_follow_id, std::string &err) {
+    if (follower_id == followee_id) { err = "cannot follow yourself"; return false; }
     std::string s_follower = std::to_string(follower_id);
     std::string s_followee = std::to_string(followee_id);
     const char *paramValues[2] = { s_follower.c_str(), s_followee.c_str() };
+    // Try INSERT normally; some Postgres-compatible DBs (e.g. older versions or
+    // some forks) may not support ON CONFLICT. If INSERT fails with unique
+    // violation, fall back to selecting existing follow_id.
     PGresult *res = PQexecParams(pimpl->conn,
         "INSERT INTO follows(follower_id,followee_id) VALUES($1::bigint,$2::bigint) RETURNING follow_id;",
         2, nullptr, paramValues, nullptr, nullptr, 0);
     if (!res) { err = "no result"; return false; }
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) { err = PQresultErrorMessage(res); PQclear(res); return false; }
-    out_follow_id = std::stol(PQgetvalue(res,0,0)); PQclear(res); return true;
+    ExecStatusType st = PQresultStatus(res);
+    if (st == PGRES_TUPLES_OK && PQntuples(res) > 0) {
+        out_follow_id = std::stol(PQgetvalue(res,0,0)); PQclear(res); return true;
+    }
+    // If insert failed, check SQLSTATE for unique violation (23505)
+    if (st != PGRES_TUPLES_OK) {
+        const char *sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+        const char *errmsg = PQresultErrorMessage(res);
+        PQclear(res);
+        if (sqlstate && std::string(sqlstate) == "23505") {
+            // duplicate key -> select existing follow_id
+            PGresult *res2 = PQexecParams(pimpl->conn,
+                "SELECT follow_id FROM follows WHERE follower_id=$1::bigint AND followee_id=$2::bigint;",
+                2, nullptr, paramValues, nullptr, nullptr, 0);
+            if (!res2) { err = "no result"; return false; }
+            if (PQresultStatus(res2) == PGRES_TUPLES_OK && PQntuples(res2) > 0) {
+                out_follow_id = std::stol(PQgetvalue(res2,0,0)); PQclear(res2); return true;
+            }
+            const char *em = PQresultErrorMessage(res2);
+            if (em && em[0] != '\0') err = em; else err = "no follow_id found after duplicate";
+            PQclear(res2);
+            return false;
+        }
+        // Not a duplicate-key error, return original error message
+        if (errmsg && errmsg[0] != '\0') err = errmsg; else err = "insert failed";
+        return false;
+    }
+    // Should not reach here; treat as unexpected failure
+    err = "insert failed (unexpected)";
+    return false;
 }
 
 bool Database::remove_follow(long follower_id, long followee_id, std::string &err) {
@@ -270,7 +302,9 @@ bool Database::remove_follow(long follower_id, long followee_id, std::string &er
         2, nullptr, paramValues, nullptr, nullptr, 0);
     if (!res) { err = "no result"; return false; }
     if (PQresultStatus(res) != PGRES_TUPLES_OK) { err = PQresultErrorMessage(res); PQclear(res); return false; }
-    bool ok = PQntuples(res) > 0; PQclear(res); return ok;
+    // Treat deleting a non-existent follow as success (idempotent unfollow)
+    PQclear(res);
+    return true;
 }
 
 bool Database::delete_weibo(long user_id, long weibo_id, std::string &err) {
@@ -309,4 +343,25 @@ bool Database::get_following(long user_id, std::string &json_out, std::string &e
     json arr = json::array();
     for (int i=0;i<PQntuples(res);++i){ json it; it["user_id"] = std::stol(PQgetvalue(res,i,0)); it["username"] = std::string(PQgetvalue(res,i,1)); arr.push_back(it);} PQclear(res);
     json out; out["users"] = arr; json_out = out.dump(); return true;
+}
+
+bool Database::get_user_info(long user_id, std::string &json_out, std::string &err) {
+    std::string s_user = std::to_string(user_id);
+    const char *paramValues[1] = { s_user.c_str() };
+    PGresult *res = PQexecParams(pimpl->conn,
+        "SELECT user_id, username, COALESCE(avatar,'') AS avatar FROM users WHERE user_id = $1::bigint;",
+        1, nullptr, paramValues, nullptr, nullptr, 0);
+    if (!res) { err = "no result"; return false; }
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) { err = PQresultErrorMessage(res); PQclear(res); return false; }
+    if (PQntuples(res) == 0) { err = "user not found"; PQclear(res); return false; }
+    json out;
+    out["user_id"] = std::stol(PQgetvalue(res, 0, 0));
+    out["username"] = std::string(PQgetvalue(res, 0, 1));
+    out["avatar"] = std::string(PQgetvalue(res, 0, 2));
+    PQclear(res);
+    json result;
+    result["ok"] = true;
+    result["data"] = out;
+    json_out = result.dump();
+    return true;
 }

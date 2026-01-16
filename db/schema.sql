@@ -45,3 +45,10 @@ CREATE TABLE IF NOT EXISTS follows (
 -- 索引（按需添加）
 CREATE INDEX IF NOT EXISTS idx_weibos_user_id ON weibos(user_id);
 CREATE INDEX IF NOT EXISTS idx_comments_weibo_id ON comments(weibo_id);
+
+-- 如果数据库管理员愿意，可以将序列权限授予应用使用的角色（例如 `yuyu_user`）。
+-- 这些语句需要由拥有足够权限的数据库用户（如 `postgres`）执行：
+-- 授予当前已有序列的权限：
+-- GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO yuyu_user;
+-- 可选：确保将来在该 schema 创建的序列也自动授予权限（由创建者或管理员执行）：
+-- ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO yuyu_user;

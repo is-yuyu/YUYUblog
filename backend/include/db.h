@@ -24,6 +24,7 @@ public:
     bool delete_weibo(long user_id, long weibo_id, std::string &err);
     bool get_followers(long user_id, std::string &json_out, std::string &err);
     bool get_following(long user_id, std::string &json_out, std::string &err);
+    bool get_user_info(long user_id, std::string &json_out, std::string &err);
 
 private:
     struct Impl;
